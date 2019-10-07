@@ -1,0 +1,129 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper
+    PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+    "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+    
+    <mapper namespace="board">
+    	
+    	<!-- 게시판 목록 -->
+    	<select id="list" resultType="aticleboard.dto.BoardDTO">
+    		select * from(
+    			select rownum rn, A.*
+    			from(
+    				select num, subject, writer, reg_date, 
+    						readcount, ref, re_step, re_level
+    				from 
+    						board
+    				order by 
+    						ref desc, re_step asc
+    			) A
+    		)
+    		where rn between #{start} and #{end} 
+    	</select>
+    	
+    	<!-- 테이블의 총 레코드 수 -->
+    	<select id="recodeCount" resultType="int">
+	    	select count(*) as recodeCount from board
+    	</select>
+    	
+    	<!-- view페이지 -->
+ 		 <select id="view" parameterType="int" resultType="aticleboard.dto.BoardDTO">
+ 		 	select * from board where num=#{num}
+ 		 </select>
+ 		 
+ 		 <!-- 게시물 번호에 따라 답변달기 -->
+ 		<insert id="reply">
+ 			insert into board
+				(num, writer, subject, passwd, 
+				ref, re_step, re_level, 
+				content, ip
+				) 
+			values
+				(
+				    (select nvl(max(num)+1,1)from board),
+				    #{writer},#{subject},#{passwd},
+				    #{ref},#{re_step},#{re_level},
+				    #{content},#{ip}
+				)
+ 		</insert> 
+ 		
+ 		<!-- 게시물 번호에 따른 출력순서 조정 -->
+ 		  <update id="updateStep">
+    		update board 
+    			set 
+    				re_step = re_step+1 
+    			where 
+    				ref=#{ref} and re_step>=#{re_step}
+    	</update>
+    	
+    	<!-- 비밀번호 체크 -->
+    	<select id="pwdCheck" resultType="String">
+    		select passwd from board where passwd=#{passwd} and num=#{num}
+    	</select>
+    	
+    	<!-- 게시물 및 답글 수정 -->
+    	<update id="update">
+    		 update board 
+    	set 
+       		writer = #{writer},
+       		subject = #{subject},
+       		content = #{content}, 
+      		down = #{down} 
+   		where 
+        	num = #{num}
+    	</update>
+    	
+  		<!-- 게시물 및 답글 삭제 -->
+  		 <delete id="delete">
+  		 	delete from board where num=#{num}
+  		 </delete>
+  		 
+  		 <!-- 게시물 등록 -->
+  		 <insert id ="insert" parameterType="aticleboard.dto.BoardDTO">
+  		 	insert into board(num, writer, subject, passwd, ref, re_step, re_level, content, ip) 
+  		 	values(
+  		 		(select nvl(max(num)+1,1)from board),
+  		 		#{writer}, #{subject}, #{passwd},
+  		 		(select nvl(max(num)+1,1)from board),1,0,
+  		 		#{content},#{ip}
+  		 	)
+  		 </insert>
+  		 
+  		 <!-- 조건에 따른 검색  -->
+  		 <select id="search" resultType="aticleboard.dto.BoardDTO">
+  		 	select num, writer, subject, reg_date, content,
+		            readcount, ref, re_step, re_level
+		    from board
+		    <choose>
+		    	<when test="option != 'all'">
+		    		where ${option} like #{keyword}
+		    	</when>
+		    	<when  test="option == 'all'">
+		    		where writer like #{keyword} or content like #{keyword} or subject like #{keyword}
+		    	</when>
+		    </choose>
+		    order by ref desc, re_step
+  		 </select>
+  		 
+  		<!-- 조회수 증가-->
+  		<update id="readcount">
+  			update board set readcount = readcount+1 where num=#{num}
+  		</update> 
+
+		<!-- 게시물 번호에 따른 댓글 입력 -->
+		<insert id="commentAdd">
+			insert into b_comment
+		    	(comment_num, board_num, writer, content)
+			values
+			    (
+			    (select nvl(max(comment_num)+1,1) from b_comment), 
+			    #{board_num}, #{writer}, #{content}
+			    )
+		</insert>
+		
+		<!-- 게시물에 따른 댓글 목록 조회 -->
+		<select id="commentList" resultType="aticleboard.dto.BoardCommentDTO">
+    		select * from b_comment where board_num=#{board_num}
+    		order by comment_num ASC
+    	</select>
+    </mapper>
